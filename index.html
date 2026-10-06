@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f2ec">
+  <meta name="description" content="品目ごとの立替と負担を入力して、わかりやすく精算できる割り勘ツールです。">
+  <title>ワリカン帳｜品目ごとに、すっきり精算</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f2ec;
+      --surface: #fffefa;
+      --ink: #202e2a;
+      --muted: #6d7772;
+      --line: #e2e4dd;
+      --green: #236858;
+      --green-dark: #194d43;
+      --green-soft: #e8f1ed;
+      --orange: #d87550;
+      --orange-soft: #fbede5;
+      --yellow: #e6bc66;
+      --red: #b84c3f;
+      --shadow: 0 18px 55px rgba(40, 54, 47, .055);
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(230, 188, 102, .12), transparent 24rem),
+        var(--paper);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 3px solid rgba(35, 104, 88, .32);
+      outline-offset: 2px;
+    }
+    .app-shell { max-width: 1180px; margin: 0 auto; padding: 0 30px 44px; }
+    .site-header {
+      height: 78px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(32, 46, 42, .1);
+    }
+    .brand { display: inline-flex; gap: 11px; align-items: center; color: var(--ink); text-decoration: none; }
+    .brand-mark {
+      width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px;
+      background: var(--green); position: relative; overflow: hidden;
+    }
+    .brand-mark::before, .brand-mark::after {
+      content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid #fffefa;
+    }
+    .brand-mark::before { left: 5px; top: 8px; }
+    .brand-mark::after { right: 5px; bottom: 8px; border-color: var(--yellow); }
+    .brand-name { font-size: 17px; font-weight: 800; letter-spacing: .045em; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .save-state { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 7px; }
+    .save-dot { width: 7px; height: 7px; border-radius: 50%; background: #63a184; }
+    .text-button {
+      border: 0; padding: 8px 0; background: transparent; color: var(--muted);
+      cursor: pointer; font-size: 13px;
+    }
+    .text-button:hover { color: var(--red); }
+
+    main { padding-top: 36px; }
+    .intro {
+      display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 42px;
+      align-items: end; padding: 6px 0 32px;
+    }
+    .eyebrow {
+      margin: 0 0 11px; color: var(--green); font-weight: 800; font-size: 11px;
+      letter-spacing: .13em; text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+    }
+    .eyebrow-mark { display: inline-block; width: 18px; height: 2px; background: var(--orange); }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 43px); line-height: 1.27; letter-spacing: -.045em; font-weight: 800; }
+    h1 em { color: var(--green); font-style: normal; }
+    .intro-copy { color: var(--muted); margin: 13px 0 0; max-width: 590px; font-size: 14px; }
+    .hero-total {
+      border-left: 1px solid var(--line); padding: 6px 0 7px 25px; min-height: 98px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .hero-total-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .hero-total strong { font-size: 34px; letter-spacing: -.045em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .hero-total small { color: var(--muted); font-size: 11px; margin-top: 5px; }
+
+    .workspace { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 22px; align-items: start; }
+    .panel {
+      background: var(--surface); border: 1px solid rgba(32, 46, 42, .085);
+      border-radius: 16px; box-shadow: var(--shadow);
+    }
+    .people-panel { padding: 22px 20px 18px; }
+    .panel-title-row, .ledger-top, .results-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    }
+    .section-title-group { display: flex; align-items: flex-start; gap: 11px; }
+    .section-index {
+      display: inline-grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto;
+      border-radius: 8px; background: var(--green-soft); color: var(--green); font-size: 11px; font-weight: 800;
+    }
+    h2 { font-size: 17px; line-height: 1.25; margin: 0; letter-spacing: -.02em; }
+    .section-caption { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .people-list { margin: 20px 0 14px; }
+    .person-row { display: flex; align-items: center; gap: 10px; min-height: 43px; border-bottom: 1px solid #eff0eb; }
+    .person-row:last-child { border-bottom: 0; }
+    .tone-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+    .tone-0 { background: #337862; } .tone-1 { background: #d77e55; } .tone-2 { background: #6887ae; }
+    .tone-3 { background: #bd9b42; } .tone-4 { background: #9470a7; } .tone-5 { background: #539e9c; }
+    .person-name-input {
+      min-width: 0; flex: 1; border: 0; border-radius: 5px; padding: 6px 2px;
+      background: transparent; color: var(--ink); font-size: 13px; font-weight: 700;
+    }
+    .icon-button {
+      width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto;
+      border: 0; border-radius: 8px; background: transparent; color: #8b9590; cursor: pointer;
+    }
+    .icon-button:hover:not(:disabled) { background: var(--orange-soft); color: var(--red); }
+    .icon-button:disabled { opacity: .35; cursor: not-allowed; }
+    .button-secondary, .button-primary, .button-quiet {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px;
+      cursor: pointer; font-weight: 700; transition: background .15s, transform .15s; min-height: 40px;
+    }
+    .button-secondary { width: 100%; padding: 8px 12px; border: 1px dashed #b7c8bf; color: var(--green); background: #f8fbf8; font-size: 12px; }
+    .button-secondary:hover { background: var(--green-soft); }
+    .button-primary { padding: 9px 15px; border: 1px solid var(--green); color: white; background: var(--green); font-size: 13px; }
+    .button-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+    .button-primary:active, .button-secondary:active, .button-quiet:active { transform: translateY(1px); }
+    .tip-note { margin: 17px 0 0; padding: 12px 12px 12px 13px; border-radius: 10px; background: #f8f4e9; color: #6d644f; font-size: 11px; }
+    .tip-note strong { display: block; margin-bottom: 3px; color: #8a6b2d; font-size: 10px; letter-spacing: .09em; }
+
+    .ledger { min-width: 0; }
+    .ledger-top { margin: 3px 0 8px; }
+    .ledger-intro { display: flex; align-items: flex-start; gap: 11px; }
+    .ledger-caption { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .ledger-subnote { color: var(--muted); margin: 0 0 13px 37px; font-size: 11px; }
+    .items-list { display: grid; gap: 11px; }
+    .item-card { padding: 17px 18px 15px; border: 1px solid rgba(32, 46, 42, .09); border-radius: 13px; background: var(--surface); box-shadow: 0 6px 20px rgba(40,54,47,.035); }
+    .item-topline { display: grid; grid-template-columns: 28px minmax(140px, 1fr) minmax(135px, .66fr) 30px; gap: 10px; align-items: center; }
+    .item-number { color: #9aa29d; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .field-label { display: block; color: var(--muted); font-size: 10px; margin: 0 0 4px; font-weight: 700; }
+    .line-input, .amount-input, .select-input {
+      width: 100%; min-width: 0; min-height: 38px; padding: 7px 10px;
+      border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      color: var(--ink); font-size: 13px;
+    }
+    .line-input { font-weight: 700; }
+    .amount-wrap { position: relative; }
+    .amount-wrap::before { content: "¥"; position: absolute; left: 10px; top: 8px; color: #7b857f; font-size: 13px; }
+    .amount-input { padding-left: 25px; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .item-remove { align-self: end; margin-bottom: 3px; }
+    .item-divider { height: 1px; background: #eceee8; margin: 14px 0 13px; }
+    .allocations { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .allocation-block { min-width: 0; }
+    .allocation-heading { display: flex; justify-content: space-between; align-items: center; gap: 7px; margin-bottom: 8px; }
+    .allocation-label { color: var(--ink); font-size: 11px; font-weight: 800; }
+    .allocation-help { color: var(--muted); font-size: 10px; }
+    .payer-list { display: grid; gap: 6px; }
+    .payer-row { display: grid; grid-template-columns: minmax(70px, 1fr) 72px 14px 28px; gap: 5px; align-items: center; }
+    .payer-person { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; font-weight: 650; }
+    .payer-person .person-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .percent-input {
+      width: 100%; min-width: 0; height: 30px; padding: 4px 6px; text-align: right;
+      border: 1px solid var(--line); border-radius: 7px; background: #fff; font-size: 11px; font-variant-numeric: tabular-nums;
+    }
+    .percent-sign { color: var(--muted); font-size: 10px; }
+    .payer-remove { width: 27px; height: 27px; }
+    .payer-tools { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+    .select-add { flex: 1; min-width: 0; min-height: 31px; padding: 4px 7px; font-size: 10px; border-radius: 7px; }
+    .tiny-button { border: 0; background: transparent; padding: 5px 2px; color: var(--green); font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .tiny-button:hover { text-decoration: underline; }
+    .share-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .share-chip { position: relative; display: inline-flex; }
+    .share-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .share-chip span {
+      display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 4px 9px;
+      border: 1px solid var(--line); border-radius: 7px; background: white; color: #66716b;
+      font-size: 10px; cursor: pointer; transition: background .12s, border-color .12s;
+    }
+    .share-chip span::before { content: ""; width: 6px; height: 6px; border: 1.5px solid #aab2ad; border-radius: 2px; }
+    .share-chip input:checked + span { background: var(--green-soft); border-color: #9ab9aa; color: var(--green-dark); font-weight: 700; }
+    .share-chip input:checked + span::before { background: var(--green); border-color: var(--green); }
+    .share-chip input:focus-visible + span { outline: 3px solid rgba(35, 104, 88, .32); outline-offset: 2px; }
+    .share-explainer { min-height: 16px; margin: 7px 0 0; color: var(--muted); font-size: 10px; }
+    .empty-state {
+      padding: 32px 18px; text-align: center; border: 1px dashed #c9d1ca; border-radius: 13px;
+      color: var(--muted); background: rgba(255,254,250,.55);
+    }
+    .empty-symbol { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #edf3ee; color: var(--green); font-size: 19px; }
+    .empty-state strong { display: block; margin: 10px 0 3px; color: var(--ink); font-size: 13px; }
+    .empty-state p { margin: 0; font-size: 11px; }
+
+    .results { margin-top: 27px; padding: 22px 24px 20px; }
+    .results-title { display: flex; align-items: flex-start; gap: 11px; }
+    .total-badge { text-align: right; }
+    .total-badge span { display: block; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .total-badge strong { display: block; font-size: 23px; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+    .summary-empty { padding: 24px 10px 9px; color: var(--muted); text-align: center; font-size: 12px; }
+    .summary-content[hidden], .summary-empty[hidden] { display: none; }
+    .summary-caption { margin: 18px 0 8px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+    .person-summary { border-top: 1px solid var(--line); }
+    .summary-row {
+      display: grid; grid-template-columns: minmax(150px, 1.4fr) repeat(2, minmax(90px, .75fr)) minmax(130px, 1fr);
+      gap: 12px; align-items: center; padding: 12px 4px; border-bottom: 1px solid #eff0eb;
+    }
+    .summary-person { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; font-weight: 750; }
+    .summary-person span:last-child { overflow-wrap: anywhere; }
+    .summary-value small { display: block; margin-bottom: 2px; color: var(--muted); font-size: 9px; }
+    .summary-value strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+    .balance-box { text-align: right; }
+    .balance-box small { display: block; color: var(--muted); font-size: 9px; }
+    .balance-box strong { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+    .balance-box.receive strong { color: var(--green); }
+    .balance-box.owe strong { color: var(--orange); }
+    .balance-box span { color: var(--muted); font-size: 9px; }
+    .settlement { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; margin-top: 19px; padding: 15px 16px; border-radius: 11px; background: #f4f6f1; }
+    .settlement h3 { margin: 0; font-size: 12px; }
+    .settlement p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .settlement-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .transfer {
+      display: inline-flex; align-items: center; gap: 6px; min-height: 31px; padding: 5px 8px;
+      border: 1px solid #d7e2d8; border-radius: 8px; background: rgba(255,255,255,.7);
+      font-size: 10px; font-variant-numeric: tabular-nums;
+    }
+    .transfer strong { color: var(--green-dark); }
+    .transfer-arrow { color: #98a49c; }
+    .settled-note { color: var(--green-dark); font-size: 11px; font-weight: 750; }
+    .button-quiet { min-height: 35px; padding: 7px 10px; border: 1px solid #d3ddd5; background: white; color: var(--green-dark); font-size: 10px; }
+    .button-quiet:hover { background: var(--green-soft); }
+    .footnote { margin: 12px 0 0; color: var(--muted); font-size: 10px; }
+    footer { display: flex; justify-content: space-between; gap: 15px; margin-top: 22px; color: #7d8781; font-size: 10px; }
+    .toast {
+      position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 12px); z-index: 10;
+      padding: 10px 15px; border-radius: 9px; background: var(--ink); color: white;
+      font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+      box-shadow: 0 8px 28px rgba(20,35,29,.2);
+    }
+    .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; gap: 19px; }
+      .people-panel { padding: 18px 19px 16px; }
+      .people-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); column-gap: 18px; }
+      .tip-note { margin-top: 12px; }
+      .intro { grid-template-columns: minmax(0, 1fr) 230px; gap: 22px; }
+    }
+    @media (max-width: 620px) {
+      .app-shell { padding: 0 16px 30px; }
+      .site-header { height: 64px; }
+      .brand-name { font-size: 15px; }
+      .save-state { display: none; }
+      main { padding-top: 25px; }
+      .intro { display: block; padding: 0 0 24px; }
+      h1 { font-size: 32px; }
+      .intro-copy { font-size: 12px; }
+      .hero-total { min-height: auto; margin-top: 19px; padding: 12px 14px; border: 1px solid rgba(35,104,88,.13); border-radius: 11px; background: rgba(255,254,250,.7); }
+      .hero-total strong { font-size: 26px; }
+      .people-list { grid-template-columns: 1fr; }
+      .ledger-top { align-items: flex-start; }
+      .ledger-top .button-primary { min-height: 37px; padding: 7px 10px; font-size: 11px; white-space: nowrap; }
+      .ledger-subnote { margin-left: 0; }
+      .item-card { padding: 13px 12px 12px; }
+      .item-topline { grid-template-columns: 22px minmax(0, 1fr) minmax(115px, .8fr) 26px; gap: 6px; }
+      .allocations { grid-template-columns: 1fr; gap: 15px; }
+      .allocation-block + .allocation-block { padding-top: 12px; border-top: 1px solid #eceee8; }
+      .results { margin-top: 19px; padding: 17px 13px 15px; }
+      .summary-row { grid-template-columns: minmax(0,1fr) minmax(72px,.7fr) minmax(72px,.7fr); gap: 7px; padding: 11px 1px; }
+      .summary-person { grid-column: 1 / 2; grid-row: 1 / 3; align-self: center; }
+      .summary-value:nth-child(2), .summary-value:nth-child(3) { text-align: right; }
+      .balance-box { grid-column: 2 / 4; display: flex; justify-content: flex-end; align-items: baseline; gap: 7px; }
+      .balance-box small, .balance-box span { display: inline; }
+      .balance-box strong { display: inline; }
+      .settlement { grid-template-columns: 1fr; gap: 12px; padding: 13px; }
+      .button-quiet { justify-self: start; }
+      footer { display: block; }
+      footer span { display: block; margin-top: 3px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="ワリカン帳 ホーム">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">ワリカン帳</span>
+      </a>
+      <div class="header-right">
+        <span class="save-state"><span class="save-dot" aria-hidden="true"></span>入力内容はこの端末に自動保存</span>
+        <button class="text-button" id="reset-button" type="button">最初からやり直す</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>DINNER, SORTED</p>
+          <h1 id="page-title">出した人も、払う人も、<br><em>すぐわかる。</em></h1>
+          <p class="intro-copy">品目ごとに「誰が立て替えたか」と「誰の分か」を決めるだけ。複数人での割合払いも、最後の精算も自動でまとめます。</p>
+        </div>
+        <div class="hero-total" aria-live="polite">
+          <span class="hero-total-label">いまの合計</span>
+          <strong id="hero-total">¥0</strong>
+          <small id="hero-caption">品目を追加すると、ここに表示されます</small>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <aside class="panel people-panel" aria-labelledby="people-title">
+          <div class="panel-title-row">
+            <div class="section-title-group">
+              <span class="section-index" aria-hidden="true">01</span>
+              <div>
+                <h2 id="people-title">メンバー</h2>
+                <p class="section-caption">お会計に参加する人</p>
+              </div>
+            </div>
+          </div>
+          <div class="people-list" id="people-list"></div>
+          <button class="button-secondary" type="button" id="add-person">＋ メンバーを追加</button>
+          <div class="tip-note"><strong>使い方のヒント</strong>名前は自由に変更できます。品目ごとに負担する人を選べます。</div>
+        </aside>
+
+        <section class="ledger" aria-labelledby="ledger-title">
+          <div class="ledger-top">
+            <div class="ledger-intro">
+              <span class="section-index" aria-hidden="true">02</span>
+              <div>
+                <h2 id="ledger-title">品目と支払い</h2>
+                <p class="ledger-caption">注文ごとの金額と立替を入力</p>
+              </div>
+            </div>
+            <button class="button-primary" type="button" id="add-item">＋ 品目を追加</button>
+          </div>
+          <p class="ledger-subnote">立替は割合で分けられます。負担する人は、選んだメンバーで均等割りになります。</p>
+          <div class="items-list" id="items-list"></div>
+          <div class="empty-state" id="empty-state">
+            <span class="empty-symbol" aria-hidden="true">＋</span>
+            <strong>まずは品目を追加しましょう</strong>
+            <p>料理や飲み物ごとに金額と支払いを記録できます。</p>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel results" aria-labelledby="results-title">
+        <div class="results-top">
+          <div class="results-title">
+            <span class="section-index" aria-hidden="true">03</span>
+            <div>
+              <h2 id="results-title">精算結果</h2>
+              <p class="section-caption">立替額と負担額の差から、送金先を計算します</p>
+            </div>
+          </div>
+          <div class="total-badge"><span>会計合計</span><strong id="grand-total">¥0</strong></div>
+        </div>
+        <div class="summary-empty" id="summary-empty">品目を追加すると、メンバーごとの精算額が表示されます。</div>
+        <div class="summary-content" id="summary-content" hidden>
+          <p class="summary-caption">メンバーごとの内訳</p>
+          <div class="person-summary" id="person-summary" aria-live="polite"></div>
+          <div class="settlement">
+            <div>
+              <h3>精算メモ</h3>
+              <p>この通りに送金すれば、立替と負担がぴったり合います。</p>
+              <div class="settlement-list" id="settlement-list"></div>
+            </div>
+            <button class="button-quiet" type="button" id="copy-result">精算メモをコピー</button>
+          </div>
+          <p class="footnote">金額は1円単位で調整しています。割り切れない1円は、選択順に配分します。</p>
+        </div>
+      </section>
+
+      <footer>
+        <span>ワリカン帳 — 品目ごとの支払いを、見える形に。</span>
+        <span>入力内容はご利用中のブラウザ内に保存されます。</span>
+      </footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+      var STORAGE_KEY = "warikancho.v1";
+      var peopleRoot = document.getElementById("people-list");
+      var itemsRoot = document.getElementById("items-list");
+      var emptyRoot = document.getElementById("empty-state");
+      var summaryRoot = document.getElementById("person-summary");
+      var settlementRoot = document.getElementById("settlement-list");
+      var toastTimer = null;
+
+      function makeId(prefix) {
+        return prefix + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+      }
+
+      function freshState() {
+        return {
+          participants: [
+            { id: "person_you", name: "あなた" },
+            { id: "person_friend", name: "友だち" }
+          ],
+          items: []
+        };
+      }
+
+      function cleanState(value) {
+        if (!value || !Array.isArray(value.participants)) return freshState();
+        var participants = value.participants
+          .filter(function (person) { return person && typeof person.id === "string"; })
+          .map(function (person) { return { id: person.id, name: String(person.name || "").slice(0, 40) }; });
+        if (!participants.length) participants = freshState().participants;
+        var participantIds = participants.map(function (person) { return person.id; });
+        var items = Array.isArray(value.items) ? value.items.map(function (item) {
+          var payers = Array.isArray(item.payers) ? item.payers
+            .filter(function (payer) { return payer && participantIds.indexOf(payer.personId) !== -1; })
+            .map(function (payer) { return { personId: payer.personId, percent: Math.max(0, Number(payer.percent) || 0) }; }) : [];
+          if (!payers.length) payers = [{ personId: participants[0].id, percent: 100 }];
+          normalizePercentages(payers);
+          var shares = Array.isArray(item.shares) ? item.shares.filter(function (id) { return participantIds.indexOf(id) !== -1; }) : participantIds.slice();
+          if (!shares.length) shares = participantIds.slice();
+          return {
+            id: typeof item.id === "string" ? item.id : makeId("item"),
+            name: String(item.name || "").slice(0, 80),
+            amount: item.amount === undefined || item.amount === null ? "" : String(item.amount),
+            payers: payers,
+            shares: shares
+          };
+        }) : [];
+        return { participants: participants, items: items };
+      }
+
+      function loadState() {
+        try {
+          var stored = localStorage.getItem(STORAGE_KEY);
+          return stored ? cleanState(JSON.parse(stored)) : freshState();
+        } catch (error) {
+          return freshState();
+        }
+      }
+
+      var state = loadState();
+
+      function saveState() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) { /* Private browsing can block storage. */ }
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, function (character) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character];
+        });
+      }
+
+      function yen(value) {
+        return "¥" + Math.round(Number(value) || 0).toLocaleString("ja-JP");
+      }
+
+      function roundedPercent(value) {
+        var result = Math.round((Number(value) || 0) * 10) / 10;
+        return String(result);
+      }
+
+      function normalizePercentages(payers) {
+        if (!payers.length) return;
+        if (payers.length === 1) {
+          payers[0].percent = 100;
+          return;
+        }
+        var total = payers.reduce(function (sum, payer) { return sum + (Number(payer.percent) || 0); }, 0);
+        if (total <= 0) {
+          distributeEvenly(payers);
+          return;
+        }
+        var allocated = 0;
+        payers.forEach(function (payer, index) {
+          if (index === payers.length - 1) payer.percent = Math.round((100 - allocated) * 10) / 10;
+          else {
+            payer.percent = Math.round((100 * payer.percent / total) * 10) / 10;
+            allocated += payer.percent;
+          }
+        });
+      }
+
+      function distributeEvenly(payers) {
+        if (!payers.length) return;
+        var each = Math.floor(1000 / payers.length) / 10;
+        var allocated = 0;
+        payers.forEach(function (payer, index) {
+          payer.percent = index === payers.length - 1 ? Math.round((100 - allocated) * 10) / 10 : each;
+          allocated += payer.percent;
+        });
+      }
+
+      function updatePayerPercent(item, personId, rawValue) {
+        var target = item.payers.find(function (payer) { return payer.personId === personId; });
+        if (!target) return;
+        if (item.payers.length === 1) {
+          target.percent = 100;
+          return;
+        }
+        var requested = rawValue === "" ? 0 : Number(rawValue);
+        if (!Number.isFinite(requested)) requested = 0;
+        requested = Math.max(0, Math.min(100, requested));
+        target.percent = requested;
+        var others = item.payers.filter(function (payer) { return payer.personId !== personId; });
+        var oldTotal = others.reduce(function (sum, payer) { return sum + Math.max(0, Number(payer.percent) || 0); }, 0);
+        var remaining = Math.round((100 - requested) * 10) / 10;
+        var assigned = 0;
+        others.forEach(function (payer, index) {
+          if (index === others.length - 1) payer.percent = Math.round((remaining - assigned) * 10) / 10;
+          else {
+            var weight = oldTotal > 0 ? Math.max(0, Number(payer.percent) || 0) / oldTotal : 1 / others.length;
+            payer.percent = Math.round((remaining * weight) * 10) / 10;
+            assigned += payer.percent;
+          }
+        });
+      }
+
+      function amountFor(item) {
+        var value = Number(item.amount);
+        if (!Number.isFinite(value) || value < 0) return 0;
+        return Math.round(value);
+      }
+
+      function allocateAmount(total, targets) {
+        if (!targets.length) return [];
+        var weightTotal = targets.reduce(function (sum, target) { return sum + Math.max(0, Number(target.weight) || 0); }, 0);
+        var denominator = weightTotal > 0 ? weightTotal : targets.length;
+        var rows = targets.map(function (target, index) {
+          var weight = weightTotal > 0 ? Math.max(0, Number(target.weight) || 0) : 1;
+          var exact = total * weight / denominator;
+          var base = Math.floor(exact);
+          return { id: target.id, amount: base, remainder: exact - base, index: index };
+        });
+        var remaining = total - rows.reduce(function (sum, row) { return sum + row.amount; }, 0);
+        var byRemainder = rows.slice().sort(function (a, b) { return b.remainder - a.remainder || a.index - b.index; });
+        for (var index = 0; index < remaining; index += 1) byRemainder[index % byRemainder.length].amount += 1;
+        return rows;
+      }
+
+      function personById(id) {
+        return state.participants.find(function (person) { return person.id === id; });
+      }
+
+      function toneClass(index) {
+        return "tone-" + (index % 6);
+      }
+
+      function renderPeople() {
+        peopleRoot.innerHTML = state.participants.map(function (person, index) {
+          return '<div class="person-row">' +
+            '<span class="tone-dot ' + toneClass(index) + '" aria-hidden="true"></span>' +
+            '<label class="sr-only" for="person-name-' + escapeHtml(person.id) + '">メンバー名</label>' +
+            '<input class="person-name-input" id="person-name-' + escapeHtml(person.id) + '" type="text" maxlength="40" value="' + escapeHtml(person.name) + '" data-action="person-name" data-person="' + escapeHtml(person.id) + '">' +
+            '<button class="icon-button" type="button" aria-label="' + escapeHtml(person.name || "メンバー") + 'を削除" data-action="remove-person" data-person="' + escapeHtml(person.id) + '"' + (state.participants.length === 1 ? " disabled" : "") + '>×</button>' +
+            '</div>';
+        }).join("");
+      }
+
+      function renderPayerRows(item, itemIndex) {
+        return item.payers.map(function (payer) {
+          var person = personById(payer.personId);
+          if (!person) return "";
+          var removeLabel = (person.name || "メンバー") + "を支払う人から外す";
+          return '<div class="payer-row">' +
+            '<span class="payer-person"><span class="tone-dot ' + toneClass(state.participants.indexOf(person)) + '" aria-hidden="true"></span><span class="person-label" data-name-for="' + escapeHtml(person.id) + '">' + escapeHtml(person.name) + '</span></span>' +
+            '<label class="sr-only" for="percent-' + escapeHtml(item.id) + '-' + escapeHtml(person.id) + '">' + escapeHtml(person.name) + 'の支払い割合</label>' +
+            '<input class="percent-input" id="percent-' + escapeHtml(item.id) + '-' + escapeHtml(person.id) + '" type="number" min="0" max="100" step="0.1" inputmode="decimal" value="' + roundedPercent(payer.percent) + '" data-action="payer-percent" data-item="' + escapeHtml(item.id) + '" data-person="' + escapeHtml(person.id) + '"' + (item.payers.length === 1 ? " disabled" : "") + '>' +
+            '<span class="percent-sign">%</span>' +
+            '<button class="icon-button payer-remove" type="button" aria-label="' + escapeHtml(removeLabel) + '" data-action="remove-payer" data-item="' + escapeHtml(item.id) + '" data-person="' + escapeHtml(person.id) + '"' + (item.payers.length === 1 ? " disabled" : "") + '>×</button>' +
+            '</div>';
+        }).join("");
+      }
+
+      function renderShareChips(item) {
+        return state.participants.map(function (person, index) {
+          var checked = item.shares.indexOf(person.id) !== -1;
+          var inputId = "share-" + item.id + "-" + person.id;
+          return '<label class="share-chip" for="' + escapeHtml(inputId) + '">' +
+            '<input id="' + escapeHtml(inputId) + '" type="checkbox" data-action="toggle-share" data-item="' + escapeHtml(item.id) + '" data-person="' + escapeHtml(person.id) + '"' + (checked ? " checked" : "") + '>' +
+            '<span><span class="person-label" data-name-for="' + escapeHtml(person.id) + '">' + escapeHtml(person.name) + '</span></span>' +
+            '</label>';
+        }).join("");
+      }
+
+      function renderItems() {
+        emptyRoot.hidden = state.items.length > 0;
+        itemsRoot.innerHTML = state.items.map(function (item, index) {
+          var options = state.participants.filter(function (person) {
+            return !item.payers.some(function (payer) { return payer.personId === person.id; });
+          }).map(function (person) {
+            return '<option value="' + escapeHtml(person.id) + '">' + escapeHtml(person.name) + '</option>';
+          }).join("");
+          return '<article class="item-card" aria-label="品目 ' + (index + 1) + '">' +
+            '<div class="item-topline">' +
+              '<span class="item-number">' + String(index + 1).padStart(2, "0") + '</span>' +
+              '<div><label class="field-label" for="item-name-' + escapeHtml(item.id) + '">品目</label><input class="line-input" id="item-name-' + escapeHtml(item.id) + '" type="text" maxlength="80" placeholder="例：唐揚げ" value="' + escapeHtml(item.name) + '" data-action="item-name" data-item="' + escapeHtml(item.id) + '"></div>' +
+              '<div><label class="field-label" for="item-amount-' + escapeHtml(item.id) + '">金額</label><div class="amount-wrap"><input class="amount-input" id="item-amount-' + escapeHtml(item.id) + '" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="' + escapeHtml(item.amount) + '" data-action="item-amount" data-item="' + escapeHtml(item.id) + '"></div></div>' +
+              '<button class="icon-button item-remove" type="button" aria-label="' + escapeHtml(item.name || "品目 " + (index + 1)) + 'を削除" data-action="remove-item" data-item="' + escapeHtml(item.id) + '">×</button>' +
+            '</div>' +
+            '<div class="item-divider" aria-hidden="true"></div>' +
+            '<div class="allocations">' +
+              '<section class="allocation-block" aria-label="支払った人">' +
+                '<div class="allocation-heading"><span class="allocation-label">だれが立て替えた？</span><span class="allocation-help">割合を指定</span></div>' +
+                '<div class="payer-list">' + renderPayerRows(item, index) + '</div>' +
+                '<div class="payer-tools">' +
+                  '<label class="sr-only" for="add-payer-' + escapeHtml(item.id) + '">支払う人を追加</label>' +
+                  '<select class="select-input select-add" id="add-payer-' + escapeHtml(item.id) + '" data-action="add-payer" data-item="' + escapeHtml(item.id) + '"' + (options ? "" : " disabled") + '><option value="">＋ 支払う人を追加</option>' + options + '</select>' +
+                  '<button class="tiny-button" type="button" data-action="even-payers" data-item="' + escapeHtml(item.id) + '"' + (item.payers.length < 2 ? " hidden" : "") + '>均等にする</button>' +
+                '</div>' +
+              '</section>' +
+              '<section class="allocation-block" aria-label="負担する人">' +
+                '<div class="allocation-heading"><span class="allocation-label">だれの分？</span><span class="allocation-help">選んだ人で均等</span></div>' +
+                '<div class="share-chips">' + renderShareChips(item) + '</div>' +
+                '<p class="share-explainer">' + (item.shares.length === state.participants.length ? "メンバー全員で負担します" : item.shares.length + "人で分けます") + '</p>' +
+              '</section>' +
+            '</div>' +
+          '</article>';
+        }).join("");
+      }
+
+      function calculate() {
+        var totals = {};
+        state.participants.forEach(function (person) {
+          totals[person.id] = { paid: 0, owed: 0, balance: 0 };
+        });
+        var grandTotal = 0;
+        state.items.forEach(function (item) {
+          var amount = amountFor(item);
+          grandTotal += amount;
+          var payers = item.payers.filter(function (payer) { return totals[payer.personId]; });
+          normalizePercentages(payers);
+          allocateAmount(amount, payers.map(function (payer) {
+            return { id: payer.personId, weight: payer.percent };
+          })).forEach(function (row) { totals[row.id].paid += row.amount; });
+          var shares = item.shares.filter(function (id) { return totals[id]; });
+          if (!shares.length) shares = state.participants.map(function (person) { return person.id; });
+          allocateAmount(amount, shares.map(function (id) { return { id: id, weight: 1 }; }))
+            .forEach(function (row) { totals[row.id].owed += row.amount; });
+        });
+        state.participants.forEach(function (person) {
+          totals[person.id].balance = totals[person.id].paid - totals[person.id].owed;
+        });
+        return { totals: totals, grandTotal: grandTotal };
+      }
+
+      function transfersFor(totals) {
+        var creditors = state.participants.map(function (person) {
+          return { id: person.id, amount: Math.max(0, totals[person.id].balance) };
+        }).filter(function (person) { return person.amount > 0; });
+        var debtors = state.participants.map(function (person) {
+          return { id: person.id, amount: Math.max(0, -totals[person.id].balance) };
+        }).filter(function (person) { return person.amount > 0; });
+        var transfers = [];
+        var debtorIndex = 0;
+        var creditorIndex = 0;
+        while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+          var amount = Math.min(debtors[debtorIndex].amount, creditors[creditorIndex].amount);
+          if (amount > 0) transfers.push({ from: debtors[debtorIndex].id, to: creditors[creditorIndex].id, amount: amount });
+          debtors[debtorIndex].amount -= amount;
+          creditors[creditorIndex].amount -= amount;
+          if (debtors[debtorIndex].amount === 0) debtorIndex += 1;
+          if (creditors[creditorIndex].amount === 0) creditorIndex += 1;
+        }
+        return transfers;
+      }
+
+      function renderSummary() {
+        var result = calculate();
+        document.getElementById("hero-total").textContent = yen(result.grandTotal);
+        document.getElementById("grand-total").textContent = yen(result.grandTotal);
+        document.getElementById("hero-caption").textContent = state.items.length ? state.items.length + "品目を記録中" : "品目を追加すると、ここに表示されます";
+        var hasItems = state.items.length > 0;
+        document.getElementById("summary-empty").hidden = hasItems;
+        document.getElementById("summary-content").hidden = !hasItems;
+        if (!hasItems) {
+          summaryRoot.innerHTML = "";
+          settlementRoot.innerHTML = "";
+          return;
+        }
+        summaryRoot.innerHTML = state.participants.map(function (person, index) {
+          var totals = result.totals[person.id];
+          var balanceClass = totals.balance > 0 ? "receive" : (totals.balance < 0 ? "owe" : "");
+          var balanceText = totals.balance > 0 ? "+" + yen(totals.balance) : (totals.balance < 0 ? "−" + yen(-totals.balance) : yen(0));
+          var status = totals.balance > 0 ? "受け取る" : (totals.balance < 0 ? "支払う" : "精算済み");
+          return '<div class="summary-row">' +
+            '<div class="summary-person"><span class="tone-dot ' + toneClass(index) + '" aria-hidden="true"></span><span>' + escapeHtml(person.name || "名前未設定") + '</span></div>' +
+            '<div class="summary-value"><small>立替えた</small><strong>' + yen(totals.paid) + '</strong></div>' +
+            '<div class="summary-value"><small>負担する</small><strong>' + yen(totals.owed) + '</strong></div>' +
+            '<div class="balance-box ' + balanceClass + '"><small>精算額</small><strong>' + balanceText + '</strong><span>' + status + '</span></div>' +
+            '</div>';
+        }).join("");
+        var transfers = transfersFor(result.totals);
+        settlementRoot.innerHTML = transfers.length ? transfers.map(function (transfer) {
+          var from = personById(transfer.from);
+          var to = personById(transfer.to);
+          return '<span class="transfer"><span>' + escapeHtml(from ? from.name : "") + '</span><span class="transfer-arrow" aria-hidden="true">→</span><span>' + escapeHtml(to ? to.name : "") + '</span><strong>' + yen(transfer.amount) + '</strong></span>';
+        }).join("") : '<span class="settled-note">このままで精算済みです ✓</span>';
+      }
+
+      function renderAll() {
+        renderPeople();
+        renderItems();
+        renderSummary();
+      }
+
+      function updateLabels() {
+        state.participants.forEach(function (person) {
+          document.querySelectorAll('[data-name-for="' + person.id.replace(/"/g, "") + '"]').forEach(function (element) {
+            element.textContent = person.name || "名前未設定";
+          });
+        });
+      }
+
+      function findItem(id) {
+        return state.items.find(function (item) { return item.id === id; });
+      }
+
+      function showToast(message) {
+        var toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("visible");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(function () { toast.classList.remove("visible"); }, 2300);
+      }
+
+      function addItem() {
+        var firstPerson = state.participants[0];
+        var item = {
+          id: makeId("item"),
+          name: "",
+          amount: "",
+          payers: [{ personId: firstPerson.id, percent: 100 }],
+          shares: state.participants.map(function (person) { return person.id; })
+        };
+        state.items.push(item);
+        saveState();
+        renderItems();
+        renderSummary();
+        var input = document.getElementById("item-name-" + item.id);
+        if (input) input.focus();
+      }
+
+      document.getElementById("add-item").addEventListener("click", addItem);
+      document.getElementById("add-person").addEventListener("click", function () {
+        if (state.participants.length >= 16) {
+          showToast("メンバーは16人まで追加できます。");
+          return;
+        }
+        var person = { id: makeId("person"), name: "メンバー" + (state.participants.length + 1) };
+        state.participants.push(person);
+        state.items.forEach(function (item) { item.shares.push(person.id); });
+        saveState();
+        renderAll();
+        document.getElementById("person-name-" + person.id).focus();
+        document.getElementById("person-name-" + person.id).select();
+      });
+
+      document.getElementById("reset-button").addEventListener("click", function () {
+        if (!window.confirm("メンバーと品目をすべて消して、最初からやり直しますか？")) return;
+        state = freshState();
+        saveState();
+        renderAll();
+        showToast("入力内容をリセットしました。");
+      });
+
+      document.addEventListener("input", function (event) {
+        var target = event.target;
+        var action = target.getAttribute("data-action");
+        if (action === "person-name") {
+          var person = personById(target.getAttribute("data-person"));
+          if (person) {
+            person.name = target.value.slice(0, 40);
+            saveState();
+            updateLabels();
+            renderSummary();
+          }
+        } else if (action === "item-name") {
+          var item = findItem(target.getAttribute("data-item"));
+          if (item) {
+            item.name = target.value.slice(0, 80);
+            saveState();
+          }
+        } else if (action === "item-amount") {
+          var amountItem = findItem(target.getAttribute("data-item"));
+          if (amountItem) {
+            amountItem.amount = target.value;
+            saveState();
+            renderSummary();
+          }
+        } else if (action === "payer-percent") {
+          var payerItem = findItem(target.getAttribute("data-item"));
+          if (payerItem) {
+            updatePayerPercent(payerItem, target.getAttribute("data-person"), target.value);
+            payerItem.payers.forEach(function (payer) {
+              var percentInput = document.getElementById("percent-" + payerItem.id + "-" + payer.personId);
+              if (percentInput && percentInput !== target) percentInput.value = roundedPercent(payer.percent);
+            });
+            target.value = roundedPercent(payerItem.payers.find(function (payer) { return payer.personId === target.getAttribute("data-person"); }).percent);
+            saveState();
+            renderSummary();
+          }
+        }
+      });
+
+      document.addEventListener("change", function (event) {
+        var target = event.target;
+        var action = target.getAttribute("data-action");
+        if (action === "person-name") {
+          renderAll();
+        } else if (action === "item-name") {
+          var item = findItem(target.getAttribute("data-item"));
+          if (item) {
+            item.name = target.value.slice(0, 80);
+            saveState();
+            renderItems();
+          }
+        } else if (action === "item-amount") {
+          var amountItem = findItem(target.getAttribute("data-item"));
+          if (amountItem) {
+            var amount = Number(target.value);
+            amountItem.amount = Number.isFinite(amount) && amount >= 0 ? String(Math.round(amount)) : "";
+            saveState();
+            renderItems();
+            renderSummary();
+          }
+        } else if (action === "add-payer") {
+          var payerItem = findItem(target.getAttribute("data-item"));
+          var personId = target.value;
+          if (payerItem && personId && !payerItem.payers.some(function (payer) { return payer.personId === personId; })) {
+            payerItem.payers.push({ personId: personId, percent: 0 });
+            distributeEvenly(payerItem.payers);
+            saveState();
+            renderItems();
+            renderSummary();
+          }
+        } else if (action === "toggle-share") {
+          var shareItem = findItem(target.getAttribute("data-item"));
+          var sharePerson = target.getAttribute("data-person");
+          if (!shareItem) return;
+          if (target.checked && shareItem.shares.indexOf(sharePerson) === -1) shareItem.shares.push(sharePerson);
+          if (!target.checked && shareItem.shares.length === 1) {
+            target.checked = true;
+            showToast("負担する人を少なくとも1人選んでください。");
+            return;
+          }
+          if (!target.checked) shareItem.shares = shareItem.shares.filter(function (id) { return id !== sharePerson; });
+          saveState();
+          renderItems();
+          renderSummary();
+        }
+      });
+
+      document.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-action]");
+        if (!button) return;
+        var action = button.getAttribute("data-action");
+        var personId = button.getAttribute("data-person");
+        var itemId = button.getAttribute("data-item");
+        if (action === "remove-person") {
+          if (state.participants.length === 1) return;
+          var removed = personById(personId);
+          state.participants = state.participants.filter(function (person) { return person.id !== personId; });
+          state.items.forEach(function (item) {
+            item.payers = item.payers.filter(function (payer) { return payer.personId !== personId; });
+            if (!item.payers.length) item.payers = [{ personId: state.participants[0].id, percent: 100 }];
+            normalizePercentages(item.payers);
+            item.shares = item.shares.filter(function (id) { return id !== personId; });
+            if (!item.shares.length) item.shares = state.participants.map(function (person) { return person.id; });
+          });
+          saveState();
+          renderAll();
+          showToast((removed ? removed.name : "メンバー") + "を削除しました。");
+        } else if (action === "remove-item") {
+          state.items = state.items.filter(function (item) { return item.id !== itemId; });
+          saveState();
+          renderItems();
+          renderSummary();
+        } else if (action === "remove-payer") {
+          var payerItem = findItem(itemId);
+          if (!payerItem || payerItem.payers.length < 2) return;
+          payerItem.payers = payerItem.payers.filter(function (payer) { return payer.personId !== personId; });
+          normalizePercentages(payerItem.payers);
+          saveState();
+          renderItems();
+          renderSummary();
+        } else if (action === "even-payers") {
+          var evenItem = findItem(itemId);
+          if (evenItem) {
+            distributeEvenly(evenItem.payers);
+            saveState();
+            renderItems();
+            renderSummary();
+          }
+        }
+      });
+
+      function resultText() {
+        var result = calculate();
+        var transfers = transfersFor(result.totals);
+        var lines = ["ワリカン帳｜会計合計 " + yen(result.grandTotal)];
+        if (!state.items.length) return lines[0] + "\n品目はまだありません。";
+        if (!transfers.length) lines.push("精算はありません。");
+        else transfers.forEach(function (transfer) {
+          var from = personById(transfer.from);
+          var to = personById(transfer.to);
+          lines.push((from ? from.name : "") + " → " + (to ? to.name : "") + " " + yen(transfer.amount));
+        });
+        return lines.join("\n");
+      }
+
+      document.getElementById("copy-result").addEventListener("click", function () {
+        var text = resultText();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () {
+            showToast("精算メモをコピーしました。");
+          }).catch(function () {
+            fallbackCopy(text);
+          });
+        } else {
+          fallbackCopy(text);
+        }
+      });
+
+      function fallbackCopy(text) {
+        var temporary = document.createElement("textarea");
+        temporary.value = text;
+        temporary.setAttribute("readonly", "");
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+        var copied = false;
+        try { copied = document.execCommand("copy"); } catch (error) { copied = false; }
+        temporary.remove();
+        showToast(copied ? "精算メモをコピーしました。" : "コピーできませんでした。");
+      }
+
+      renderAll();
+    }());
+  </script>
+</body>
+</html>
